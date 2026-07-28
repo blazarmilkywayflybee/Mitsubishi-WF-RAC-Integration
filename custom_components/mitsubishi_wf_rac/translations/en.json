@@ -168,6 +168,11 @@
       "energy_usage": {
         "name": "Energy Usage Cycle"
       }
+    },
+    "switch": {
+      "home_leave_mode": {
+        "name": "Home Leave Mode"
+      }
     }
   }
 }
