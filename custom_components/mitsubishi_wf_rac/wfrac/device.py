@@ -3,6 +3,7 @@ import asyncio
 from datetime import timedelta
 from typing import Any
 import logging
+from time import monotonic
 
 from async_timeout import timeout
 from homeassistant.core import HomeAssistant
@@ -16,6 +17,8 @@ from .models.aircon import Aircon, AirconStat
 from ..const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
+_ACCOUNT_RETRY_COOLDOWN = timedelta(minutes=5).total_seconds()
 
 class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attributes
     """Device Class"""
@@ -55,6 +58,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._availability_retry = availability_retry
         self._availability_retry_count = 0
         self._availability_retry_limit = availability_retry_limit
+        self._last_account_retry: float | None = None
         self._create_swing_mode_select = create_swing_mode_select
 
         super().__init__(
@@ -96,8 +100,16 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             # until the integration is reloaded. Proactively re-register our account
             # on failure so we recover automatically on the next poll if we were
             # evicted. add_account() is self-contained and swallows its own errors.
-            await self.add_account()
+            now = monotonic()
+            if (
+                self._last_account_retry is None
+                or now - self._last_account_retry >= _ACCOUNT_RETRY_COOLDOWN
+            ):
+                self._last_account_retry = now
+                await self.add_account()
             return
+
+        self._last_account_retry = None
 
         try:
             self._connected_accounts = int(response["numOfAccount"])
