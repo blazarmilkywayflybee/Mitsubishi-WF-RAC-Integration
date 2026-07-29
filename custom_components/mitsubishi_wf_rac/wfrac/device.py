@@ -1,8 +1,9 @@
 """Device module"""
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 import logging
+import time
 
 from async_timeout import timeout
 from homeassistant.core import HomeAssistant
@@ -17,7 +18,7 @@ from ..const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-_ACCOUNT_RETRY_COOLDOWN = timedelta(minutes=5)
+_ACCOUNT_RETRY_COOLDOWN = timedelta(minutes=5).total_seconds()
 
 class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attributes
     """Device Class"""
@@ -57,7 +58,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._availability_retry = availability_retry
         self._availability_retry_count = 0
         self._availability_retry_limit = availability_retry_limit
-        self._last_account_retry: datetime | None = None
+        self._last_account_retry: float | None = None
         self._create_swing_mode_select = create_swing_mode_select
 
         super().__init__(
@@ -99,7 +100,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             # until the integration is reloaded. Proactively re-register our account
             # on failure so we recover automatically on the next poll if we were
             # evicted. add_account() is self-contained and swallows its own errors.
-            now = datetime.now()
+            now = time.monotonic()
             if (
                 self._last_account_retry is None
                 or now - self._last_account_retry >= _ACCOUNT_RETRY_COOLDOWN
@@ -107,6 +108,8 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
                 self._last_account_retry = now
                 await self.add_account()
             return
+
+        self._last_account_retry = None
 
         try:
             self._connected_accounts = int(response["numOfAccount"])
@@ -120,7 +123,6 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             self._led_status = response.get("ledStat")
             self._auto_heating = response.get("autoHeating")
             self._set_availability(True)
-            self._last_account_retry = None
         except (KeyError, TypeError, ValueError) as ex:
             _LOGGER.warning("Could not parse airco data", exc_info=ex)
             self._set_availability(False)
