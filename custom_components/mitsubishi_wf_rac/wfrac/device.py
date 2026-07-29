@@ -3,7 +3,7 @@ import asyncio
 from datetime import timedelta
 from typing import Any
 import logging
-import time
+from time import monotonic
 
 from async_timeout import timeout
 from homeassistant.core import HomeAssistant
@@ -100,7 +100,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             # until the integration is reloaded. Proactively re-register our account
             # on failure so we recover automatically on the next poll if we were
             # evicted. add_account() is self-contained and swallows its own errors.
-            now = time.monotonic()
+            now = monotonic()
             if (
                 self._last_account_retry is None
                 or now - self._last_account_retry >= _ACCOUNT_RETRY_COOLDOWN
